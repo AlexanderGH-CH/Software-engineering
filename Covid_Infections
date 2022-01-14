@@ -1,0 +1,64 @@
+import requests
+import urllib.request as request
+import json
+from bs4 import BeautifulSoup
+import pandas as pd
+
+#api_url_switzerland ="https://corona-api.com/countries"
+#response = requests.get(api_url_switzerland)
+#response.json()
+
+countrysearch = input("Please enter the country you look for: ")
+
+URL = 'https://www.iban.com/country-codes'
+page = requests.get(URL)
+bs = BeautifulSoup(page.content, "html.parser")
+table_body = bs.find('tbody')
+rows = table_body.find_all('tr')
+for row in rows:
+   cols = row.find_all('td')
+   cols = [x.text.strip() for x in cols]
+   if cols[0] == countrysearch:
+       ctrycode =cols[1]
+       
+#api_url ="https://corona-api.com/countries/"+ctrycode
+#response = requests.get(api_url)
+with request.urlopen("https://corona-api.com/countries/"+ctrycode) as response:
+    source = response.read()
+    data = json.loads(source)
+
+# Examine the data sent
+#type(data)
+#type(data['_cacheHit'])
+#type(data['data'])
+#['data'].keys()
+#type(data['data']['coordinates'])
+#type(data['data']['name'])
+#type(data['data']['population'])
+#type(data['data']['updated_at'])
+#data['data']['timeline'][10]
+
+last60days = {}
+count = 0
+
+while count <= 60:
+    v ={data['data']['timeline'][count]['date']:{"New_confirmed":data['data']['timeline'][count]['new_confirmed'],
+        "cases_per_100k": (data['data']['timeline'][count]['new_confirmed']/data['data']['population'] *100000)}}
+    last60days.update(v)
+    count =count+1
+    if count >60:
+        break
+
+
+#incidenzper100k = data['data']['timeline'][0]['new_confirmed'] / data['data']['population'] *100000
+#print(incidenzper100k)
+
+df = pd.DataFrame.from_dict(last60days)
+df = df.T
+df = df.reset_index(level=0)
+df = df.rename(columns={'index': 'Date'})
+
+
+import plotly.express as px
+fig = px.line(df, x="Date", y="cases_per_100k")
+fig.show()
